@@ -1,10 +1,17 @@
 %% CALL CENTER 2018
 
 close all;
-clc;                    % Limpiamos la consola
+clc;                        % Limpiamos la consola
 
-listaEV = [];           % Lista de eventos, vacia al principio
-t_sim = 0.0;            % Reloj de la sim
+DEBUG = false;              % Simulacion por pasos
+CONFIANZA = false;          % Intervalos de confianza
+MUESTRAS = false;           % Informacion muestras
+BLOCK = false;              % Informacion bloques
+TRANSITORIO = false;        % Eliminar muestras transitorio
+CRITERIO_CALIDAD = true;    % Aplicar criterio de calidad
+
+listaEV = [];               % Lista de eventos, vacia al principio
+t_sim = 0.0;                % Reloj de la sim
 steps = 200000;
 
 % Tipo de eventos
@@ -15,7 +22,7 @@ COUNT_N = 2;
 % PARAMS DE SIMULACION
 waitTime = 5;
 
-x = 333;
+X = 333;
 type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias al Call Center
 param1_llegadas = 100;
 param2_llegadas = 0;
@@ -53,5 +60,20 @@ sumcuadrado_block = 0;
 
 % Eliminación de las muestras transitorias
 H = 10000;
+
+% Programamos la entrada del primer evento
+[X,T_aleatorio] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
+[P,T_fijo] = aleatorio(P, 3, waitTime);
+
+%Empieza el algoritmo
+for i=1:steps           % Max de pasos
+% while true
+    %i = i + 1;
+    
+    [listaEV,tiempo,tipo,t_llegada] = sgteEvento(listaEV);
+    t_sim = tiempo;
+
+
+end
 
 
