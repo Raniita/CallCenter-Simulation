@@ -65,12 +65,14 @@ H = 10000;
 [X,T_aleatorio] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
 [P,T_fijo] = aleatorio(P, 3, waitTime);
 
+
+
 %Empieza el algoritmo
 for i=1:steps           % Max de pasos
 % while true
     %i = i + 1;
     
-    [listaEV,tiempo,tipo,t_llegada] = sgteEvento(listaEV);
+    [listaEV,tiempo,tipo,t_llegada,nivel] = sgteEvento(listaEV);
     t_sim = tiempo;
 
 
