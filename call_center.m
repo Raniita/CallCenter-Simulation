@@ -89,6 +89,12 @@ for i=1:steps           % Max de pasos
             else
                 fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada);
             end
+            
+            if (DEBUG)                  % Ejecucion paso a paso
+                display('LLEGADA');
+                [t_simulacion]
+                pause
+            end
     end 
 end
 
