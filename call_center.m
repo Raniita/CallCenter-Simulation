@@ -35,13 +35,12 @@ param2_salidas = [0 0 0 0];
 P = 555;                                % Semilla para contar N.
 
 % ESTADO
-N = 0;                                  % <-- Vector de 1xC;
+N = zeros(1,4);                                  % <-- Vector de 1xC;
 fifoTiempos = cell(C,1);
 
 C = length ( type_sim_salidas ) ;       % Niveles del Call Center
 k = [1 2 3 4];                          % k ( i ) : numero de operarios en el nivel i
 p = [0.9 0.9 0.8 0.7];                  % p ( i ) : probabilidad de resolucion en el nivel i
-
 
 % VARIABLES PARA EL CALCULO DE LOS PROMEDIOS DE INTERES
 summuestrasT = 0;
@@ -65,17 +64,58 @@ H = 10000;
 [X,T_aleatorio] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
 [P,T_fijo] = aleatorio(P, 3, waitTime);
 
-
+% Programamos la primera entrada de eventos.
+listaEV = encolarEvento(listaEV, T_aleatorio, LLEGA, k(1));
+listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0);
 
 %Empieza el algoritmo
 for i=1:steps           % Max de pasos
 % while true
     %i = i + 1;
     
-    [listaEV,tiempo,tipo,t_llegada,nivel] = sgteEvento(listaEV);
+    [listaEV, tiempo, tipo, t_llegada, nivel] = sgteEvento(listaEV);
     t_sim = tiempo;
-
-
+    
+    switch tipo
+        case LLEGA
+            N(nivel) = N(nivel) + 1;
+            if nivel == 1 
+                [X,t_aux] = aleatorio(X,type_sim_llegadas,param1_llegadas,param2_llegadas);
+                listaEV = encolarEvento(listaEV, t_sim + t_aux, LLEGA, t_sim, 1);
+            end
+            if N(nivel) <= k(nivel)
+                [S,t_aux] = aleatorio(S,type_sim_salidas,param1_salidas,param2_salidas);
+                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
+            else
+                fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada);
+            end
+    end 
 end
 
 
+% Mostramos los resultados
+display('### FIN DE LA SIMULACION ###');
+display(strcat('--> Pasos=',num2str(i)));
+if MUESTRAS
+    display(strcat('--> summuestrasT='),num2str(summuestrasT));
+    display(strcat('--> nummuestrasT='),num2str(nummuestrasT));
+    display(strcat('--> T='),num2str(T));
+    display(strcat('--> summuestrasN='),num2str(summuestrasN));
+    display(strcat('--> nummuestrasN='),num2str(nummuestrasN));
+    display(strcat('--> N='),num2str(N));
+end
+if CONFIANZA
+    display('### INTERVALO DE CONFIANZA ###');
+    display(strcat('--> Tolerancia relativa=',num2str(tolrelativa)));
+    display(strcat('--> Calidad=',num2str(unomenosalpha)));
+    display(strcat('--> Intervalo izquierda=',num2str(izq)));
+    display(strcat('--> Intervalo derecha=',num2str(der)));
+end
+if BLOCK
+    display('### BLOQUES ###');
+    display(strcat('--> Muestras por bloque=',num2str(XperBlock)));
+end
+if TRANSITORIO
+    display('### TRANSITORIO ###');
+    display(strcat('--> Muestras eliminadas=',num2str(H)));
+end 
