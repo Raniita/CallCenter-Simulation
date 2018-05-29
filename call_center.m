@@ -35,7 +35,7 @@ param2_salidas = [0 0 0 0];
 P = 555;                                % Semilla para contar N.
 
 % ESTADO
-N = zeros(1,4);                                  % <-- Vector de 1xC;
+N = zeros(1,C);                                  % <-- Vector de 1xC;
 fifoTiempos = cell(C,1);
 
 C = length ( type_sim_salidas ) ;       % Niveles del Call Center
@@ -47,7 +47,7 @@ summuestrasT = 0;
 nummuestrasT = 0;
 sumcuadrado = 0;
 
-summuestrasN = 0;
+summuestrasN = zeros(1,C);
 nummuestrasN = 1;
 
 % Bloques
@@ -84,7 +84,7 @@ for i=1:steps           % Max de pasos
                 listaEV = encolarEvento(listaEV, t_sim + t_aux, LLEGA, t_sim, 1);
             end
             if N(nivel) <= k(nivel)
-                [S,t_aux] = aleatorio(S,type_sim_salidas,param1_salidas,param2_salidas);
+                [S,t_aux] = aleatorio(S,type_sim_salidas(nivel),param1_salidas(nivel),param2_salidas(nivel));
                 listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
             else
                 fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada);
@@ -95,6 +95,47 @@ for i=1:steps           % Max de pasos
                 [t_simulacion]
                 pause
             end
+            
+        case SALE
+            N(nivel) = N(nivel) - 1;
+            
+            if N(nivel) >= k(nivel)
+                [fifoTiempos{nivel},t_llegada] = popFIFO(fifoTiempos{nivel});
+                [S, t_aux] = aleatorio(S, type_sim_salidas(nivel), param1_salidas(nivel), param2_salidas(nivel));
+                listaEV = encolarEV(listaEV, t_sim + t_aux, SALE, t_llegada);
+            end
+            
+            if TRANSITORIO                 % Eliminamos las muestras transitorias
+                if i>H
+                    summuestrasT = summuestrasT + (t_sim - t_llegada);
+                    nummuestrasT = nummuestrasT + 1;
+                    sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+                end
+            else
+                summuestrasT = summuestrasT + (t_sim - t_llegada);
+                nummuestrasT = nummuestrasT + 1;
+                sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+            end
+            
+            if BLOCK 
+                if nummuestrasT == ((Block*XperBlock))
+                    summuestrasT_block = summuestrasT_block + (summuestrasT/XperBlock);
+                    nummuestrasT_block = nummuestrasT_block + 1;
+                    sumcuadrado_block = sumcuadrado_block + (summuestrasT/XperBlock)^2;
+                    
+                    summuestrasT = 0;
+                    Block = Block + 1;
+                end
+            end
+            
+        case COUNT_N
+            nummuestrasN = nummuestrasN + 1;
+            for i=1:length(summuestrasN)
+                summuestrasN(i) = summuestrasN(i) + N(i);
+            end
+            
+            [P,T_fijo] = aleatorio(P,3,T_fijo,0);
+            listaEV = encolarEvento(listaEV, t_sim + T_fijo, COUNT_N, T_fijo);
     end 
 end
 
