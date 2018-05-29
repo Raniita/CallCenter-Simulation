@@ -6,7 +6,7 @@ clc;                        % Limpiamos la consola
 DEBUG = false;              % Simulacion por pasos
 CONFIANZA = false;          % Intervalos de confianza
 MUESTRAS = false;           % Informacion muestras
-BLOCK = false;              % Informacion bloques
+BLOCK = true;              % Informacion bloques
 TRANSITORIO = false;        % Eliminar muestras transitorio
 CRITERIO_CALIDAD = true;    % Aplicar criterio de calidad
 
@@ -60,6 +60,9 @@ sumcuadrado_block = 0;
 % Eliminación de las muestras transitorias
 H = 10000;
 
+% Criterio de calidad
+reestriccion_calidad = 0.99;
+
 % Programamos la entrada del primer evento
 [X,T_aleatorio] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
 [P,T_fijo] = aleatorio(P, 3, waitTime);
@@ -68,7 +71,7 @@ H = 10000;
 listaEV = encolarEvento(listaEV, T_aleatorio, LLEGA, k(1));
 listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0);
 
-%Empieza el algoritmo
+% Empieza el algoritmo
 for i=1:steps           % Max de pasos
 % while true
     %i = i + 1;
@@ -92,7 +95,7 @@ for i=1:steps           % Max de pasos
             
             if (DEBUG)                  % Ejecucion paso a paso
                 display('LLEGADA');
-                [t_simulacion]
+                [t_sim]
                 pause
             end
             
@@ -128,6 +131,12 @@ for i=1:steps           % Max de pasos
                 end
             end
             
+            if DEBUG
+                display('SALE');
+                [t_sim, t_llegada, t_sim-t_llegada]
+                pause
+            end
+            
         case COUNT_N
             nummuestrasN = nummuestrasN + 1;
             for i=1:length(summuestrasN)
@@ -136,9 +145,25 @@ for i=1:steps           % Max de pasos
             
             [P,T_fijo] = aleatorio(P,3,T_fijo,0);
             listaEV = encolarEvento(listaEV, t_sim + T_fijo, COUNT_N, T_fijo);
-    end 
+    end
+    if CRITERIO_CALIDAD
+        [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, sumcuadrado_block);
+        if(unomenosalpha >= reestriccion_calidad) break;
+        end
+    end
 end
 
+if BLOCK
+    T = summuestrasT_block/nummuestrasT_block;
+    N = summuestrasN_block/nummuestrasN_block;
+else
+    T = summuestrasT/nummuestrasT;
+    N = summuestrasN/nummuestrasN;
+end
+
+if ~CRITERIO_CALIDAD
+    [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, sumcuadrado_block);
+end
 
 % Mostramos los resultados
 display('### FIN DE LA SIMULACION ###');
