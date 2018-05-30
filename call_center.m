@@ -3,7 +3,7 @@
 close all;
 clc;                        % Limpiamos la consola
 
-DEBUG = false;              % Simulacion por pasos
+DEBUG = true;              % Simulacion por pasos
 CONFIANZA = false;          % Intervalos de confianza
 MUESTRAS = false;           % Informacion muestras
 BLOCK = true;              % Informacion bloques
@@ -32,14 +32,19 @@ type_sim_salidas = [2 2 2 2];           % Tiempo de servicio en cada nivel
 param1_salidas = [15 20 25 30];
 param2_salidas = [0 0 0 0];
 
+Z = 666;                               % Prob salida del sistema
+type_sim_salidas_sis = 0;
+param1_salidas_sis = 0;
+param2_salidas_sis = 0;
+
 P = 555;                                % Semilla para contar N.
 
 % ESTADO
-N = zeros(1,C);                                  % <-- Vector de 1xC;
+C = length ( type_sim_salidas ) ;       % Niveles del Call Center
+N = zeros(1,C);                         % <-- Vector de 1xC;
 fifoTiempos = cell(C,1);
 
-C = length ( type_sim_salidas ) ;       % Niveles del Call Center
-k = [1 2 3 4];                          % k ( i ) : numero de operarios en el nivel i
+k = [3 3 3 3];                          % k ( i ) : numero de operarios en el nivel i
 p = [0.9 0.9 0.8 0.7];                  % p ( i ) : probabilidad de resolucion en el nivel i
 
 % VARIABLES PARA EL CALCULO DE LOS PROMEDIOS DE INTERES
@@ -61,6 +66,7 @@ sumcuadrado_block = 0;
 H = 10000;
 
 % Criterio de calidad
+tolrelativa = 0.05;
 reestriccion_calidad = 0.99;
 
 % Programamos la entrada del primer evento
@@ -68,29 +74,31 @@ reestriccion_calidad = 0.99;
 [P,T_fijo] = aleatorio(P, 3, waitTime);
 
 % Programamos la primera entrada de eventos.
-listaEV = encolarEvento(listaEV, T_aleatorio, LLEGA, k(1));
-listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0);
+listaEV = encolarEvento(listaEV, T_aleatorio, LLEGA, T_aleatorio, 1);
+listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0, 0);
 
-% Empieza el algoritmo
-for i=1:steps           % Max de pasos
-% while true
-    %i = i + 1;
+% ########################################################################
+
+%for i=1:steps           % Max de pasos
+ while true              % Criterio de calidad
+    i = i + 1;
     
     [listaEV, tiempo, tipo, t_llegada, nivel] = sgteEvento(listaEV);
     t_sim = tiempo;
     
     switch tipo
         case LLEGA
-            N(nivel) = N(nivel) + 1;
+            N(nivel) = N(nivel) + 1
             if nivel == 1 
                 [X,t_aux] = aleatorio(X,type_sim_llegadas,param1_llegadas,param2_llegadas);
-                listaEV = encolarEvento(listaEV, t_sim + t_aux, LLEGA, t_sim, 1);
+                listaEV = encolarEvento(listaEV, t_sim + t_aux, LLEGA, t_sim, 1)
             end
+            
             if N(nivel) <= k(nivel)
                 [S,t_aux] = aleatorio(S,type_sim_salidas(nivel),param1_salidas(nivel),param2_salidas(nivel));
-                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
+                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel)
             else
-                fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada);
+                fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada)
             end
             
             if (DEBUG)                  % Ejecucion paso a paso
@@ -102,10 +110,28 @@ for i=1:steps           % Max de pasos
         case SALE
             N(nivel) = N(nivel) - 1;
             
+            % Calculamos la prob de que salga del sistema y comparamos con
+            % el nivel
+            [Z, prob] = aleatorio(Z, type_sim_salidas_sis, param1_salidas_sis, param2_salidas_sis);
+            if(prob < p(nivel))     % La tarea acaba y sale del sistema
+                % Se obtiene tiempo de permanencia
+                
+            else                    % La tarea sigue en el sistema y entra al siguiente nivel
+                % Programamos llegada al siguiente nivel en el instante
+                % actual
+                
+                if nivel == C
+                    % La tarea no se ha completado y no quedan mas niveles
+                    
+                else
+                    listaEV = encolarEvento(listaEV, t_sim, LLEGA, t_llegada, nivel + 1);
+                end
+            end
+            
             if N(nivel) >= k(nivel)
                 [fifoTiempos{nivel},t_llegada] = popFIFO(fifoTiempos{nivel});
                 [S, t_aux] = aleatorio(S, type_sim_salidas(nivel), param1_salidas(nivel), param2_salidas(nivel));
-                listaEV = encolarEV(listaEV, t_sim + t_aux, SALE, t_llegada);
+                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
             end
             
             if TRANSITORIO                 % Eliminamos las muestras transitorias
@@ -147,7 +173,7 @@ for i=1:steps           % Max de pasos
             listaEV = encolarEvento(listaEV, t_sim + T_fijo, COUNT_N, T_fijo);
     end
     if CRITERIO_CALIDAD
-        [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, sumcuadrado_block);
+        [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
         if(unomenosalpha >= reestriccion_calidad) break;
         end
     end

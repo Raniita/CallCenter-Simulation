@@ -70,7 +70,7 @@ function [ lista_de_eventos ] = encolarEvento( lista_de_eventos, tiempo, tipo, t
         
         newlista(i,4) = nivel;
         
-        newlista(i+1:length(newlista),:) = lista_de_eventos(i:s(1),:);
+        newlista(i+1:size(newlista),:) = lista_de_eventos(i:s(1),:);
     else
     % El nuevo evento se inserta al final
         newlista(1:s(1),:) = lista_de_eventos(1:s(1),:);
