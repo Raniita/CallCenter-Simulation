@@ -3,7 +3,7 @@
 close all;
 clc;                        % Limpiamos la consola
 
-DEBUG = true;              % Simulacion por pasos
+DEBUG = false;              % Simulacion por pasos
 CONFIANZA = false;          % Intervalos de confianza
 MUESTRAS = false;           % Informacion muestras
 BLOCK = true;              % Informacion bloques
@@ -32,7 +32,7 @@ type_sim_salidas = [2 2 2 2];           % Tiempo de servicio en cada nivel
 param1_salidas = [15 20 25 30];
 param2_salidas = [0 0 0 0];
 
-Z = 666;                               % Prob salida del sistema
+Z = 1;                               % Prob salida del sistema
 type_sim_salidas_sis = 0;
 param1_salidas_sis = 0;
 param2_salidas_sis = 0;
@@ -46,6 +46,8 @@ fifoTiempos = cell(C,1);
 
 k = [3 3 3 3];                          % k ( i ) : numero de operarios en el nivel i
 p = [0.9 0.9 0.8 0.7];                  % p ( i ) : probabilidad de resolucion en el nivel i
+tareas = zeros(1,C);                    % tareas completadas
+sin_completar = 0;
 
 % VARIABLES PARA EL CALCULO DE LOS PROMEDIOS DE INTERES
 summuestrasT = 0;
@@ -74,8 +76,8 @@ reestriccion_calidad = 0.99;
 [P,T_fijo] = aleatorio(P, 3, waitTime);
 
 % Programamos la primera entrada de eventos.
-listaEV = encolarEvento(listaEV, T_aleatorio, LLEGA, T_aleatorio, 1);
-listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0, 0);
+listaEV = encolarEvento2(listaEV, T_aleatorio, LLEGA, T_aleatorio, 1);
+listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
 
 % ########################################################################
 
@@ -91,72 +93,78 @@ listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0, 0);
             N(nivel) = N(nivel) + 1
             if nivel == 1 
                 [X,t_aux] = aleatorio(X,type_sim_llegadas,param1_llegadas,param2_llegadas);
-                listaEV = encolarEvento(listaEV, t_sim + t_aux, LLEGA, t_sim, 1)
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, LLEGA, t_sim, 1)
             end
             
             if N(nivel) <= k(nivel)
                 [S,t_aux] = aleatorio(S,type_sim_salidas(nivel),param1_salidas(nivel),param2_salidas(nivel));
-                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel)
-            else
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_sim, nivel)
+            elseif N(nivel) > k(nivel)
                 fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada)
             end
             
             if (DEBUG)                  % Ejecucion paso a paso
                 display('LLEGADA');
-                [t_sim]
+                [t_sim, t_llegada]
                 pause
             end
             
         case SALE
-            N(nivel) = N(nivel) - 1;
+            N(nivel) = N(nivel) - 1
             
             % Calculamos la prob de que salga del sistema y comparamos con
             % el nivel
             [Z, prob] = aleatorio(Z, type_sim_salidas_sis, param1_salidas_sis, param2_salidas_sis);
-            if(prob < p(nivel))     % La tarea acaba y sale del sistema
+            if(prob < p(nivel))     
+                % La tarea acaba y sale del sistema
                 % Se obtiene tiempo de permanencia
                 
+                tareas(nivel) = tareas(nivel) + 1
+                
+                if TRANSITORIO                 % Eliminamos las muestras transitorias
+                    if i>H
+                        summuestrasT = summuestrasT + (t_sim - t_llegada);
+                        nummuestrasT = nummuestrasT + 1;
+                        sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+                    end
+                else
+                    summuestrasT = summuestrasT + (t_sim - t_llegada);
+                    nummuestrasT = nummuestrasT + 1;
+                    sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+                end
+            
+                if BLOCK 
+                    if nummuestrasT == ((Block*XperBlock))
+                        summuestrasT_block = summuestrasT_block + (summuestrasT/XperBlock);
+                        nummuestrasT_block = nummuestrasT_block + 1;
+                        sumcuadrado_block = sumcuadrado_block + (summuestrasT/XperBlock)^2;
+                    
+                        summuestrasT = 0;
+                        Block = Block + 1;
+                    end
+                end
+                
+                display('Sale del sistema');
+            
             else                    % La tarea sigue en el sistema y entra al siguiente nivel
                 % Programamos llegada al siguiente nivel en el instante
                 % actual
-                
+                display('permanece en el sistema')
                 if nivel == C
                     % La tarea no se ha completado y no quedan mas niveles
-                    
+                    sin_completar = sin_completar + 1;
+                    display('no quedan mas niveles');
                 else
-                    listaEV = encolarEvento(listaEV, t_sim, LLEGA, t_llegada, nivel + 1);
+                    listaEV = encolarEvento2(listaEV, t_sim, LLEGA, t_llegada, nivel + 1)
                 end
             end
             
             if N(nivel) >= k(nivel)
                 [fifoTiempos{nivel},t_llegada] = popFIFO(fifoTiempos{nivel});
                 [S, t_aux] = aleatorio(S, type_sim_salidas(nivel), param1_salidas(nivel), param2_salidas(nivel));
-                listaEV = encolarEvento(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
             end
-            
-            if TRANSITORIO                 % Eliminamos las muestras transitorias
-                if i>H
-                    summuestrasT = summuestrasT + (t_sim - t_llegada);
-                    nummuestrasT = nummuestrasT + 1;
-                    sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
-                end
-            else
-                summuestrasT = summuestrasT + (t_sim - t_llegada);
-                nummuestrasT = nummuestrasT + 1;
-                sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
-            end
-            
-            if BLOCK 
-                if nummuestrasT == ((Block*XperBlock))
-                    summuestrasT_block = summuestrasT_block + (summuestrasT/XperBlock);
-                    nummuestrasT_block = nummuestrasT_block + 1;
-                    sumcuadrado_block = sumcuadrado_block + (summuestrasT/XperBlock)^2;
-                    
-                    summuestrasT = 0;
-                    Block = Block + 1;
-                end
-            end
-            
+             
             if DEBUG
                 display('SALE');
                 [t_sim, t_llegada, t_sim-t_llegada]
@@ -170,7 +178,7 @@ listaEV = encolarEvento(listaEV, T_fijo, COUNT_N, 0, 0);
             end
             
             [P,T_fijo] = aleatorio(P,3,T_fijo,0);
-            listaEV = encolarEvento(listaEV, t_sim + T_fijo, COUNT_N, T_fijo);
+            listaEV = encolarEvento2(listaEV, t_sim + T_fijo, COUNT_N, T_fijo, 0);
     end
     if CRITERIO_CALIDAD
         [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
