@@ -10,3 +10,19 @@ Para la implementación utilizamos algunas funciones facilitadas por el profesor
 * popFIFO.m
 * pushFIFO.m
 
+### Datos utilizados para la validación. (Facilitados por el profesor)
+Configuración del simulador:
+* type_sim_llegadas = 2                 
+* param1_llegadas = 1.5                  
+* param2_llegadas = 0
+* type_sim_salidas = [2 2 2 2]            
+* param1_salidas = [1 1/2 1/3 1/4 1/5]   
+* param2_salidas = [0 0 0 0]
+* k = [2 1 1 1 1]      
+* p = [0.7 0.6 0.5 0.4 0.3]
+* tolrelativa = 0.05
+* criterio_calidad = 0.95
+
+Con estos valores tenemos que obtener como resultado :
+T = 9.65
+
