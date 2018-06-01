@@ -1,18 +1,19 @@
 %% CALL CENTER 2018
 
+clear;
 close all;
 clc;                        % Limpiamos la consola
 
 DEBUG = false;              % Simulacion por pasos
 CONFIANZA = false;          % Intervalos de confianza
-MUESTRAS = false;           % Informacion muestras
-BLOCK = true;              % Informacion bloques
-TRANSITORIO = false;        % Eliminar muestras transitorio
+MUESTRAS = true;            % Informacion muestras
+BLOCK = true;               % Informacion bloques
+TRANSITORIO = false;         % Eliminar muestras transitorio
 CRITERIO_CALIDAD = true;    % Aplicar criterio de calidad
 
 listaEV = [];               % Lista de eventos, vacia al principio
 t_sim = 0.0;                % Reloj de la sim
-steps = 200000;
+steps = 1000000;
 
 % Tipo de eventos
 SALE = 0;
@@ -24,12 +25,12 @@ waitTime = 5;
 
 X = 333;
 type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias al Call Center
-param1_llegadas = 100;
+param1_llegadas = 1.5;
 param2_llegadas = 0;
 
 S = 444;
 type_sim_salidas = [2 2 2 2];           % Tiempo de servicio en cada nivel
-param1_salidas = [15 20 25 30];
+param1_salidas = [1 1/2 1/3 1/4 1/5];
 param2_salidas = [0 0 0 0];
 
 Z = 1;                               % Prob salida del sistema
@@ -44,10 +45,10 @@ C = length ( type_sim_salidas ) ;       % Niveles del Call Center
 N = zeros(1,C);                         % <-- Vector de 1xC;
 fifoTiempos = cell(C,1);
 
-k = [3 3 3 3];                          % k ( i ) : numero de operarios en el nivel i
-p = [0.9 0.9 0.8 0.7];                  % p ( i ) : probabilidad de resolucion en el nivel i
-tareas = zeros(1,C);                    % tareas completadas
-sin_completar = 0;
+k = [2 1 1 1 1];                         % k ( i ) : numero de operarios en el nivel i
+p = [0.7 0.6 0.5 0.4 0.3];               % p ( i ) : probabilidad de resolucion en el nivel i
+tareas = zeros(1,C);                     % tareas completadas en cada nivel
+sin_completar = 0;                       % tareas sin completar del sistema
 
 % VARIABLES PARA EL CALCULO DE LOS PROMEDIOS DE INTERES
 summuestrasT = 0;
@@ -65,11 +66,11 @@ nummuestrasT_block = 0;
 sumcuadrado_block = 0;
 
 % Eliminación de las muestras transitorias
-H = 10000;
+H = 1000;
 
 % Criterio de calidad
 tolrelativa = 0.05;
-reestriccion_calidad = 0.99;
+reestriccion_calidad = 0.95;
 
 % Programamos la entrada del primer evento
 [X,T_aleatorio] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
@@ -81,8 +82,8 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
 
 % ########################################################################
 
-%for i=1:steps           % Max de pasos
- while true              % Criterio de calidad
+%for i=1:steps             % Max de pasos
+ while true                % Criterio de calidad
     i = i + 1;
     
     [listaEV, tiempo, tipo, t_llegada, nivel] = sgteEvento(listaEV);
@@ -90,27 +91,30 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
     
     switch tipo
         case LLEGA
-            N(nivel) = N(nivel) + 1
-            if nivel == 1 
+            N(nivel) = N(nivel) + 1;
+            
+            %Si nivel=1. Nueva entrada tsim+t_aux, t_llegada=t_sim
+            if nivel == 1
+                t_llegada = t_sim;
                 [X,t_aux] = aleatorio(X,type_sim_llegadas,param1_llegadas,param2_llegadas);
-                listaEV = encolarEvento2(listaEV, t_sim + t_aux, LLEGA, t_sim, 1)
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, LLEGA, t_llegada, 1);
             end
             
             if N(nivel) <= k(nivel)
                 [S,t_aux] = aleatorio(S,type_sim_salidas(nivel),param1_salidas(nivel),param2_salidas(nivel));
-                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_sim, nivel)
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
             elseif N(nivel) > k(nivel)
-                fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada)
+                fifoTiempos{nivel} = pushFIFO(fifoTiempos{nivel}, t_llegada);
             end
             
             if (DEBUG)                  % Ejecucion paso a paso
                 display('LLEGADA');
-                [t_sim, t_llegada]
+                [t_sim, t_llegada, nivel]
                 pause
             end
             
         case SALE
-            N(nivel) = N(nivel) - 1
+            N(nivel) = N(nivel) - 1;
             
             % Calculamos la prob de que salga del sistema y comparamos con
             % el nivel
@@ -119,7 +123,49 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                 % La tarea acaba y sale del sistema
                 % Se obtiene tiempo de permanencia
                 
-                tareas(nivel) = tareas(nivel) + 1
+                tareas(nivel) = tareas(nivel) + 1;
+                
+                if TRANSITORIO                 % Eliminamos las muestras transitorias
+                    if i>H
+                        summuestrasT = summuestrasT + (t_sim - t_llegada);
+                        nummuestrasT = nummuestrasT + 1;
+                        sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+                    end
+                else
+                    summuestrasT = summuestrasT + (t_sim - t_llegada);
+                    nummuestrasT = nummuestrasT + 1;
+                    sumcuadrado = sumcuadrado + (t_sim - t_llegada)^2;
+                end
+            
+                if BLOCK 
+                    if nummuestrasT == ((Block*XperBlock))
+                        summuestrasT_block = summuestrasT_block + (summuestrasT/XperBlock);
+                        nummuestrasT_block = nummuestrasT_block + 1;
+                        sumcuadrado_block = sumcuadrado_block + (summuestrasT/XperBlock)^2;
+                    
+                        summuestrasT = 0;
+                        Block = Block + 1;
+                    end
+                end
+                if DEBUG
+                    display('Sale del sistema');
+                end
+                    
+            else % La tarea sigue en el sistema y entra al siguiente nivel
+                % Programamos llegada al siguiente nivel en el instante
+                % actual
+                if DEBUG
+                    display('permanece en el sistema');
+                end
+                
+                if nivel == C
+                    % La tarea no se ha completado y no quedan mas niveles
+                    sin_completar = sin_completar + 1;
+                    if DEBUG
+                        display('no quedan mas niveles');
+                    end
+                    
+                    tareas(nivel) = tareas(nivel) + 1;
                 
                 if TRANSITORIO                 % Eliminamos las muestras transitorias
                     if i>H
@@ -144,18 +190,8 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                     end
                 end
                 
-                display('Sale del sistema');
-            
-            else                    % La tarea sigue en el sistema y entra al siguiente nivel
-                % Programamos llegada al siguiente nivel en el instante
-                % actual
-                display('permanece en el sistema')
-                if nivel == C
-                    % La tarea no se ha completado y no quedan mas niveles
-                    sin_completar = sin_completar + 1;
-                    display('no quedan mas niveles');
                 else
-                    listaEV = encolarEvento2(listaEV, t_sim, LLEGA, t_llegada, nivel + 1)
+                    listaEV = encolarEvento2(listaEV, t_sim, LLEGA, t_llegada, nivel + 1);
                 end
             end
             
@@ -189,14 +225,14 @@ end
 
 if BLOCK
     T = summuestrasT_block/nummuestrasT_block;
-    N = summuestrasN_block/nummuestrasN_block;
+    N = summuestrasN/nummuestrasN;
 else
     T = summuestrasT/nummuestrasT;
     N = summuestrasN/nummuestrasN;
 end
 
 if ~CRITERIO_CALIDAD
-    [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, sumcuadrado_block);
+    [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
 end
 
 % Mostramos los resultados
@@ -206,9 +242,9 @@ if MUESTRAS
     display(strcat('--> summuestrasT='),num2str(summuestrasT));
     display(strcat('--> nummuestrasT='),num2str(nummuestrasT));
     display(strcat('--> T='),num2str(T));
-    display(strcat('--> summuestrasN='),num2str(summuestrasN));
-    display(strcat('--> nummuestrasN='),num2str(nummuestrasN));
-    display(strcat('--> N='),num2str(N));
+    %display(strcat('--> summuestrasN='),num2str(summuestrasN));
+    %display(strcat('--> nummuestrasN='),num2str(nummuestrasN));
+    %display(strcat('--> N='),num2str(N));
 end
 if CONFIANZA
     display('### INTERVALO DE CONFIANZA ###');
