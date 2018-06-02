@@ -8,7 +8,7 @@ function [ lista_de_eventos ] = encolarEvento( lista_de_eventos, tiempo, tipo, t
         lista_de_eventos = zeros(1,4);
         lista_de_eventos(1,1) = tiempo;
         lista_de_eventos(1,2) = tipo;
-        if tipo == 0
+        if tipo == 1
             lista_de_eventos(1,3) = tllegada; %tllegada
         else
             lista_de_eventos(1,3) = 0; %tllegada
