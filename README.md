@@ -15,7 +15,7 @@ Configuración del simulador:
 * type_sim_llegadas = 2                 
 * param1_llegadas = 1.5                  
 * param2_llegadas = 0
-* type_sim_salidas = [2 2 2 2]            
+* type_sim_salidas = [2 2 2 2 2]            
 * param1_salidas = [1 1/2 1/3 1/4 1/5]   
 * param2_salidas = [0 0 0 0]
 * k = [2 1 1 1 1]      
