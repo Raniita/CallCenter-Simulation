@@ -21,19 +21,19 @@ LLEGA = 1;
 COUNT_N = 2;
 
 % PARAMS DE SIMULACION
-waitTime = 5;
+waitTime = 5;                           % Veces que contamos el estado
 
-X = 333;
+X = 250;
 type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias al Call Center
 param1_llegadas = 1.5;
 param2_llegadas = 0;
 
-S = 444;
-type_sim_salidas = [2 2 2 2 2];           % Tiempo de servicio en cada nivel
+S = 400;
+type_sim_salidas = [2 2 2 2 2];         % Tiempo de servicio en cada nivel
 param1_salidas = [1 1/2 1/3 1/4 1/5];
 param2_salidas = [0 0 0 0 0];
 
-Z = 1;                               % Prob salida del sistema
+Z = 1;                                  % Prob salida del sistema
 type_sim_salidas_sis = 0;
 param1_salidas_sis = 0;
 param2_salidas_sis = 0;
@@ -57,6 +57,11 @@ sumcuadrado = 0;
 
 summuestrasN = zeros(1,C);
 nummuestrasN = 1;
+
+ratio = 0;
+summuestrasRatio = 0;
+nummuestrasRatio = 0;
+sumcuadradoRatio = 0;
 
 % Bloques
 XperBlock = 100;
@@ -92,7 +97,7 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
         case LLEGA
             N(nivel) = N(nivel) + 1;
             
-            %Si nivel=1. Nueva entrada tsim+t_aux, t_llegada=t_sim
+            % Si nivel=1. Nueva entrada tsim+t_aux, t_llegada=t_sim
             if nivel == 1
                 t_llegada = t_sim;
                 [X,t_aux] = aleatorio(X, type_sim_llegadas, param1_llegadas, param2_llegadas);
@@ -123,6 +128,8 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                 % Se obtiene tiempo de permanencia
                 
                 tareas(nivel) = tareas(nivel) + 1;
+                summuestrasRatio = summuestrasRatio + 1;
+                nummuestrasRatio = nummuestrasRatio + 1;
                 
                 if TRANSITORIO                 % Eliminamos las muestras transitorias
                     if steps>H
@@ -146,6 +153,7 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                         Block = Block + 1;
                     end
                 end
+                
                 if DEBUG
                     display('Sale del sistema');
                 end
@@ -161,6 +169,10 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                 if nivel >= C
                     % La tarea no se ha completado y no quedan mas niveles
                     sin_completar = sin_completar + 1;
+                    
+                    summuestrasRatio = summuestrasRatio + 0;
+                    nummuestrasRatio = nummuestrasRatio + 1;
+                    
                     if DEBUG
                         display('no quedan mas niveles');
                     end
@@ -196,9 +208,9 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
             end
             
             if N(nivel) >= k(nivel)
-                [fifoTiempos{nivel},t_llegada] = popFIFO(fifoTiempos{nivel});
+                [fifoTiempos{nivel},t_llegada_pop] = popFIFO(fifoTiempos{nivel});
                 [S, t_aux] = aleatorio(S, type_sim_salidas(nivel), param1_salidas(nivel), param2_salidas(nivel));
-                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_llegada, nivel);
+                listaEV = encolarEvento2(listaEV, t_sim + t_aux, SALE, t_llegada_pop, nivel);
             end
              
         case COUNT_N
@@ -222,10 +234,12 @@ if BLOCK
 else
     T = summuestrasT/nummuestrasT;
 end
-    %N = summuestrasN/nummuestrasN;
-    for n2=1:length(summuestrasN)
-        N(n2) = summuestrasN(n2)/nummuestrasN;
-    end
+
+ratio = summuestrasRatio/nummuestrasRatio;
+
+for n2=1:length(summuestrasN)
+   N(n2) = summuestrasN(n2)/nummuestrasN;
+end
 
 if ~CRITERIO_CALIDAD
     [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
@@ -247,7 +261,8 @@ if MUESTRAS
     display(strcat('--> summuestrasN=',num2str(summuestrasN)));
     display(strcat('--> nummuestrasN=',num2str(nummuestrasN)));
     display(strcat('--> N=',num2str(N)));
-    
+    display(strcat('--> Tareas completadas=',num2str(tareas)));
+    display(strcat('--> Tareas sin completar=',num2str(sin_completar)));
 end
 if CONFIANZA
     display('### INTERVALO DE CONFIANZA ###');
@@ -272,3 +287,8 @@ if TRANSITORIO
     display('### TRANSITORIO ###');
     display(strcat('--> Muestras eliminadas=',num2str(H)));
 end 
+
+display('### PARTE OPTATIVA ###');
+display(strcat('--> summuestrasRatio=',num2str(summuestrasRatio)));
+display(strcat('--> nummuestrasRatio=',num2str(nummuestrasRatio)));
+display(strcat('--> ratio=',num2str(ratio)));
