@@ -10,6 +10,7 @@ MUESTRAS = true;            % Informacion muestras
 BLOCK = true;               % Informacion bloques
 TRANSITORIO = false;         % Eliminar muestras transitorio
 CRITERIO_CALIDAD = true;    % Aplicar criterio de calidad
+OPTATIVA = false;            % Ejecucion del simulador para la optativa
 
 listaEV = [];               % Lista de eventos, vacia al principio
 t_sim = 0.0;                % Reloj de la sim
@@ -24,7 +25,7 @@ COUNT_N = 2;
 waitTime = 5;                           % Veces que contamos el estado
 
 X = 250;
-type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias al Call Center
+type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias
 param1_llegadas = 1.5;
 param2_llegadas = 0;
 
@@ -45,8 +46,8 @@ C = length ( type_sim_salidas ) ;       % Niveles del Call Center
 N = zeros(1,C);                         % <-- Vector de 1xC
 fifoTiempos = cell(C,1);                % fifoTiempos para cada nivel
 
-k = [2 1 1 1 1];                         % k ( i ) : numero de operarios en el nivel i
-p = [0.7 0.6 0.5 0.4 0.3];               % p ( i ) : probabilidad de resolucion en el nivel i
+k = [2 1 1 1 1];                           % k ( i ) : numero de operarios en el nivel i
+p = [0.7 0.6 0.5 0.4 0.3];                 % p ( i ) : probabilidad de resolucion en el nivel i
 tareas = zeros(1,C);                     % tareas completadas en cada nivel
 sin_completar = 0;                       % tareas sin completar del sistema
 
@@ -87,7 +88,7 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
 
 % ########################################################################
 
- while true                % Criterio de calidad
+ while true                % Parada con criterio de calidad
     steps = steps + 1;
     
     [listaEV, tiempo, tipo, t_llegada, nivel] = sgteEvento(listaEV);
@@ -121,11 +122,12 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
             N(nivel) = N(nivel) - 1;
             
             % Calculamos la prob de que salga del sistema y comparamos con
-            % el nivel
+            % la prob del nivel
             [Z, prob] = aleatorio(Z, type_sim_salidas_sis, param1_salidas_sis, param2_salidas_sis);
+            
             if(prob < p(nivel))     
                 % La tarea acaba y sale del sistema
-                % Se obtiene tiempo de permanencia
+                % Obtenemos las muestras
                 
                 tareas(nivel) = tareas(nivel) + 1;
                 summuestrasRatio = summuestrasRatio + 1;
@@ -158,16 +160,19 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                     display('Sale del sistema');
                 end
                     
-            else % La tarea sigue en el sistema y entra al siguiente nivel
+            else
+                % La tarea sigue en el sistema y entra al siguiente nivel
                 % Programamos llegada al siguiente nivel en el instante
                 % actual
+                
                 if DEBUG
-                    display('permanece en el sistema');
+                    display('Permanece en el sistema');
                     [t_llegada]
                 end
                 
                 if nivel >= C
                     % La tarea no se ha completado y no quedan mas niveles
+                    
                     sin_completar = sin_completar + 1;
                     
                     summuestrasRatio = summuestrasRatio + 0;
@@ -178,7 +183,8 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                     end
                     
                     tareas(nivel) = tareas(nivel) + 1;
-                
+                    
+                    % Tomamos la muestra
                     if TRANSITORIO                 % Eliminamos las muestras transitorias
                         if steps>H
                             summuestrasT = summuestrasT + (t_sim - t_llegada);
@@ -203,6 +209,8 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
                     end
                 
                 else
+                    % Encolamos en el siguiente nivel con el tiempo actual
+                    
                     listaEV = encolarEvento2(listaEV, t_sim, LLEGA, t_llegada, nivel + 1);
                 end
             end
@@ -225,6 +233,10 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
     if CRITERIO_CALIDAD
         [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
         if(unomenosalpha >= reestriccion_calidad) break;
+        end
+    elseif OPTATIVA
+        [unomenosalpha_ratio, izq_ratio, der_ratio] = calidad(tolrelativa, nummuestrasRatio, summuestrasRatio, summuestrasRatio);
+        if(unomenosalpha_ratio >= reestriccion_calidad) break;
         end
     end
 end
@@ -292,3 +304,10 @@ display('### PARTE OPTATIVA ###');
 display(strcat('--> summuestrasRatio=',num2str(summuestrasRatio)));
 display(strcat('--> nummuestrasRatio=',num2str(nummuestrasRatio)));
 display(strcat('--> ratio=',num2str(ratio)));
+if OPTATIVA
+    display(strcat('--> Tolerancia relativa=',num2str(tolrelativa)));
+    display(strcat('--> Confianza deseada=',num2str(reestriccion_calidad)));
+    display(strcat('--> Confianza conseguida=',num2str(unomenosalpha_ratio)));
+    display(strcat('--> Intervalo izquierda=',num2str(izq_ratio)));
+    display(strcat('--> Intervalo derecha=',num2str(der_ratio)));
+end
