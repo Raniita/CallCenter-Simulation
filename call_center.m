@@ -8,7 +8,7 @@ DEBUG = false;              % Simulacion por pasos
 CONFIANZA = false;          % Intervalos de confianza
 MUESTRAS = true;            % Informacion muestras
 BLOCK = true;               % Informacion bloques
-TRANSITORIO = false;         % Eliminar muestras transitorio
+TRANSITORIO = true;         % Eliminar muestras transitorio
 CRITERIO_CALIDAD = true;    % Aplicar criterio de calidad
 OPTATIVA = false;            % Ejecucion del simulador para la optativa
 
@@ -26,13 +26,13 @@ waitTime = 5;                           % Veces que contamos el estado
 
 X = 250;
 type_sim_llegadas = 2;                  % Tiempo entre llegadas de incidencias
-param1_llegadas = 1.5;
+param1_llegadas = 200;
 param2_llegadas = 0;
 
 S = 400;
-type_sim_salidas = [2 2 2 2 2];         % Tiempo de servicio en cada nivel
-param1_salidas = [1 1/2 1/3 1/4 1/5];
-param2_salidas = [0 0 0 0 0];
+type_sim_salidas = [2 2 2 1];         % Tiempo de servicio en cada nivel
+param1_salidas = [30 6 2 10];
+param2_salidas = [0 0 0 0];
 
 Z = 1;                                  % Prob salida del sistema
 type_sim_salidas_sis = 0;
@@ -46,8 +46,8 @@ C = length ( type_sim_salidas ) ;       % Niveles del Call Center
 N = zeros(1,C);                         % <-- Vector de 1xC
 fifoTiempos = cell(C,1);                % fifoTiempos para cada nivel
 
-k = [2 1 1 1 1];                           % k ( i ) : numero de operarios en el nivel i
-p = [0.7 0.6 0.5 0.4 0.3];                 % p ( i ) : probabilidad de resolucion en el nivel i
+k = [10 4 1 1];                           % k ( i ) : numero de operarios en el nivel i
+p = [0.9 0.9 0.9 1];                 % p ( i ) : probabilidad de resolucion en el nivel i
 tareas = zeros(1,C);                     % tareas completadas en cada nivel
 sin_completar = 0;                       % tareas sin completar del sistema
 
@@ -234,10 +234,6 @@ listaEV = encolarEvento2(listaEV, T_fijo, COUNT_N, 0, 0);
         [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
         if(unomenosalpha >= reestriccion_calidad) break;
         end
-    elseif OPTATIVA
-        [unomenosalpha_ratio, izq_ratio, der_ratio] = calidad(tolrelativa, nummuestrasRatio, summuestrasRatio, summuestrasRatio);
-        if(unomenosalpha_ratio >= reestriccion_calidad) break;
-        end
     end
 end
 
@@ -257,6 +253,10 @@ if ~CRITERIO_CALIDAD
     [unomenosalpha, izq, der] = calidad(tolrelativa, nummuestrasT_block, summuestrasT_block, sumcuadrado_block);
 end
 
+if OPTATIVA
+    [unomenosalpha_ratio, izq_ratio, der_ratio] = calidad(tolrelativa, nummuestrasRatio, summuestrasRatio, sumcuadradoRatio);
+end
+    
 % Mostramos los resultados
 display('### FIN DE LA SIMULACION ###');
 display(strcat('--> Pasos=',num2str(steps)));
